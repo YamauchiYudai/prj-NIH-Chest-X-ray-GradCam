@@ -1,0 +1,4 @@
+# @package _group_
+name: resnet50
+pretrained: true
+target_layer: "layer4"

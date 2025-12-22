@@ -1,0 +1,12 @@
+hydra-core
+omegaconf
+timm
+pytorch-gradcam
+datasets
+scikit-learn
+pandas
+matplotlib
+opencv-python-headless
+pydicom
+tensorboard
+

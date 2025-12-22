@@ -1,0 +1,4 @@
+# @package _group_
+name: densenet121
+pretrained: true
+target_layer: "features"

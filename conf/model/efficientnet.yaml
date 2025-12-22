@@ -1,0 +1,6 @@
+# @package _group_
+name: efficientnet_b0
+pretrained: true
+# For many timm models, 'features' is the final convolutional block.
+# This may need verification depending on the exact model structure.
+target_layer: "features"

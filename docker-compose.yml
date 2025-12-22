@@ -1,0 +1,21 @@
+version: '3.8'
+services:
+  app:
+    build: .
+    image: vindr-cxr-gradcam
+    container_name: vindr-cxr-gradcam
+    ports:
+      - "6006:6006"
+    volumes:
+      - .:/app
+      - ./.cache/huggingface:/root/.cache/huggingface
+    tty: true
+    command: tail -f /dev/null
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+    ipc: host

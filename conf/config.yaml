@@ -1,0 +1,20 @@
+# @package _global_
+
+defaults:
+  - model: resnet50
+  - dataset: vindr
+  - _self_
+
+# General experiment settings
+seed: 42
+epochs: 10
+learning_rate: 1e-4
+
+# Default directory for outputs
+# (Hydra automatically manages this, but it's good to be explicit)
+hydra:
+  run:
+    dir: outputs/${now:%Y-%m-%d}/${now:%H-%M-%S}
+  sweep:
+    dir: multirun/${now:%Y-%m-%d}/${now:%H-%M-%S}
+    subdir: ${hydra.job.num}
