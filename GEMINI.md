@@ -1,7 +1,7 @@
-# Prototype Instruction: VinDR-CXR Classification & Grad-CAM (Docker + Hydra)
+# Prototype Instruction: NIH-Chest-X-ray Classification & Grad-CAM (Docker + Hydra)
 
 ## コンテキスト
-私は医療画像工学エンジニアです。Docker環境上で、Hugging Faceの `Dangindev/VinDR-CXR-VQA` データセットを使用し、**複数のモデル**を用いた病変分類の比較実験と、Grad-CAMによる可視化を行いたいです。実験管理には **Hydra** を使用します。
+私は医療画像工学エンジニアです。Docker環境上で、NIH Chest X-rayデータセットを使用し、**複数のモデル**を用いた病変分類の比較実験と、Grad-CAMによる可視化を行いたいです。実験管理には **Hydra** を使用します。
 
 ## 要件
 以下の仕様に基づき、拡張性と実験再現性の高いPythonコードを作成してください。
@@ -12,7 +12,7 @@
 - **ML**: PyTorch, Torchvision, timm (必要であれば)
 - **XAI**: `pytorch-gradcam`
 - **Logging**: TensorBoard
-- **Data**: Hugging Face Datasets
+- **Data**: Manually downloaded dataset
 
 ### 実装ステップ
 
@@ -30,7 +30,7 @@
   │   ├── densenet121.yaml # target_layer: "features"
   │   └── efficientnet.yaml # target_layer: "features" (要確認)
   └── dataset/
-      └── vindr.yaml
+      └── nih_chest_x_ray.yaml
 
 #### Step 2: データセットと前処理
 

@@ -9,32 +9,31 @@
 
 ## 2. データセットの準備
 
-このプロジェクトは、手動でダウンロードする必要がある医療画像データセット `VinDr-CXR` を使用します。
+このプロジェクトは、手動でダウンロードする必要がある医療画像データセット `NIH Chest X-ray` を使用します。
 
-1.  **PhysioNetからデータセットをダウンロード:**
-    -   [VinDr-CXR (version 1.0.0)](https://physionet.org/content/vindr-cxr/1.0.0/) にアクセスします。
-    -   `files` セクションから `vindr-cxr-1.0.0.zip` をダウンロードします（サイズが大きいため時間がかかります）。
+1.  **NIHからデータセットをダウンロード:**
+    -   [NIH Chest X-ray Dataset](https://nihcc.app.box.com/v/ChestXray-NIHCC) にアクセスします。
+    -   `Data_Entry_2017.csv` と、`images_001.zip` から `images_012.zip` までの全12個の画像zipファイルをダウンロードします。
 
 2.  **データセットを解凍:**
-    -   ダウンロードした `vindr-cxr-1.0.0.zip` を解凍します。
+    -   ダウンロードした12個のzipファイルをすべて解凍し、中の画像ファイルを `images` という名前の一つのディレクトリにまとめます。
 
 3.  **プロジェクトフォルダに配置:**
-    -   このプロジェクトのルート (`prj-VinDRCXR-GradCam/`) に `data` という名前のディレクトリを作成します。
-    -   `data` ディレクトリの中に、解凍したフォルダ一式（`1.0.0` というディレクトリなど）を移動します。
+    -   このプロジェクトのルート (`prj-NIH-Chest-X-ray-GradCam/`) に `data` という名前のディレクトリを作成します。
+    -   `data` ディレクトリの中に `nih-chest-x-ray` というディレクトリをさらに作成します。
+    -   `nih-chest-x-ray` ディレクトリに、先ほど作成した `images` フォルダと `Data_Entry_2017.csv` ファイルを移動します。
     -   最終的なディレクトリ構造は以下のようになります。
         ```
-        prj-VinDRCXR-GradCam/
+        prj-NIH-Chest-X-ray-GradCam/
         └── data/
-            └── physionet.org/
-                └── files/
-                    └── vindr-cxr/
-                        └── 1.0.0/
-                            ├── annotations/
-                            ├── core/
-                            ├── train/
-                            └── test/
+            └── nih-chest-x-ray/
+                ├── images/
+                │   ├── 00000001_000.png
+                │   ├── 00000001_001.png
+                │   └── ...
+                └── Data_Entry_2017.csv
         ```
-    -   設定ファイル (`conf/dataset/vindr.yaml`) の `data_dir` は、この `1.0.0` ディレクトリを指すようにデフォルトで設定されています。
+    -   設定ファイル (`conf/dataset/nih_chest_x_ray.yaml`) の `data_dir` は、この `nih-chest-x-ray` ディレクトリを指すようにデフォルトで設定されています。
 
 ## 3. Docker環境の構築
 
@@ -98,12 +97,12 @@ docker compose exec app python main.py --multirun model=resnet50,densenet121 epo
 
 -   **引数の説明:**
     -   `[モデルのパス]`: 学習時に保存された `.pth` ファイルのパス。例: `outputs/2023-12-22/10-00-00/best_model.pth`
-    -   `[画像のパス]`: 推論したいDICOMまたはPNG/JPEG画像のパス。
+    -   `[画像のパス]`: 推論したいPNG/JPEG画像のパス。
     -   `[Hydra設定のパス]`: モデルを学習させた際のHydraの出力ディレクトリ。モデルの構造を正しく復元するために必要です。例: `outputs/2023-12-22/10-00-00/`
 
 -   **実行例:**
     ```bash
-    docker compose exec app python predict.py outputs/multirun/2025-12-22/22-50-10/0/best_model.pth data/physionet.org/files/vindr-cxr/1.0.0/test/00a85be6-6eb0-421d-8acf-ff2dc0007e8a.dicom --config_path outputs/multirun/2025-12-22/22-50-10/0/
+    docker compose exec app python predict.py outputs/multirun/2025-12-23/10-30-00/0/best_model.pth data/nih-chest-x-ray/images/00000013_005.png --config_path outputs/multirun/2025-12-23/10-30-00/0/
     ```
 
 ## 7. Grad-CAMによる結果の解釈
@@ -114,4 +113,4 @@ docker compose exec app python main.py --multirun model=resnet50,densenet121 epo
     -   `gradcam_grid_resnet50.png` のような名前で、テストセットからランダムに選ばれた画像に対する可視化結果が保存されます。
 
 -   **病変ごとの可視化:**
-    -   `gradcam_Aortic_enlargement.png` のように、`conf/dataset/vindr.yaml` で定義された各病変について、代表的な画像の可視化結果が1枚ずつ保存されます。これにより、特定の病変に対してモデルがどこを重要視しているかを個別に確認できます。
+    -   `gradcam_Cardiomegaly.png` のように、`conf/dataset/nih_chest_x_ray.yaml` で定義された各病変について、代表的な画像の可視化結果が1枚ずつ保存されます。これにより、特定の病変に対してモデルがどこを重要視しているかを個別に確認できます。

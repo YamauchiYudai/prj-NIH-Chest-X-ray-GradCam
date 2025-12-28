@@ -1,0 +1,17 @@
+data/
+.git/
+.cache/
+*.ipynb
+outputs/
+multirun/
+*.png
+*.jpg
+__pycache__/
+.vscode/
+.idea/
+.pytest_cache/
+.coverage
+htmlcov/
+dist/
+build/
+*.egg-info/

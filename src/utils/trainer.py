@@ -53,6 +53,7 @@ def train_model(
 
             running_loss = 0.0
             running_corrects = 0
+            running_total_bits = 0
 
             # Iterate over data.
             for inputs, labels in dataloaders[phase]:
@@ -66,7 +67,8 @@ def train_model(
                 # track history if only in train
                 with torch.set_grad_enabled(phase == 'train'):
                     outputs = model(inputs)
-                    _, preds = torch.max(outputs, 1)
+                    # Multi-label prediction
+                    preds = (torch.sigmoid(outputs) > 0.5).float()
                     loss = criterion(outputs, labels)
 
                     # backward + optimize only if in training phase
@@ -77,12 +79,14 @@ def train_model(
                 # statistics
                 running_loss += loss.item() * inputs.size(0)
                 running_corrects += torch.sum(preds == labels.data)
+                running_total_bits += labels.numel()
             
             if phase == 'train' and scheduler:
                 scheduler.step()
 
             epoch_loss = running_loss / len(dataloaders[phase].dataset)
-            epoch_acc = running_corrects.double() / len(dataloaders[phase].dataset)
+            # Binary accuracy: correct bits / total bits
+            epoch_acc = running_corrects.double() / running_total_bits if running_total_bits > 0 else 0.0
 
             print(f'{phase} Loss: {epoch_loss:.4f} Acc: {epoch_acc:.4f}')
 

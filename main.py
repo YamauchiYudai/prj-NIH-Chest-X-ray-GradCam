@@ -12,6 +12,10 @@ from src.models.factory import get_model
 from src.utils.trainer import train_model
 from src.visualization.gradcam import generate_gradcam_by_pathology, generate_gradcam_grid
 
+# Register OmegaConf resolvers
+OmegaConf.register_new_resolver("len", len)
+OmegaConf.register_new_resolver("to_int", int)
+
 def set_seed(seed: int):
     """Sets the random seed for reproducibility."""
     random.seed(seed)
@@ -47,7 +51,7 @@ def main(cfg: DictConfig) -> None:
         dataloaders, train_df = get_dataloaders(cfg)
     except (FileNotFoundError, ValueError) as e:
         print(f"\n[Error] Could not load data: {e}")
-        print("\nPlease ensure the dataset is downloaded and the `data_dir` in `conf/dataset/vindr.yaml` is correct.")
+        print("\nPlease ensure the dataset is downloaded and the `data_dir` in `conf/dataset/nih_chest_x_ray.yaml` is correct.")
         return # Exit gracefully
 
     # --- 2. Get Model ---
@@ -55,7 +59,8 @@ def main(cfg: DictConfig) -> None:
     model = get_model(cfg).to(device)
 
     # --- 3. Define Loss and Optimizer ---
-    criterion = nn.CrossEntropyLoss()
+    # Using BCEWithLogitsLoss for multi-label classification
+    criterion = nn.BCEWithLogitsLoss()
     optimizer = optim.Adam(model.parameters(), lr=cfg.learning_rate)
     exp_lr_scheduler = optim.lr_scheduler.StepLR(optimizer, step_size=7, gamma=0.1)
 
@@ -74,17 +79,24 @@ def main(cfg: DictConfig) -> None:
     # --- 5. Evaluation (on test set) ---
     print("\nRunning evaluation on the test set...")
     best_model.eval()
-    test_corrects = 0
+    test_correct_bits = 0
+    total_bits = 0
+    
     with torch.no_grad():
         for inputs, labels in dataloaders['test']:
             inputs = inputs.to(device)
             labels = labels.to(device)
             outputs = best_model(inputs)
-            _, preds = torch.max(outputs, 1)
-            test_corrects += torch.sum(preds == labels.data)
+            preds = (torch.sigmoid(outputs) > 0.5).float()
+            
+            test_correct_bits += torch.sum(preds == labels.data)
+            total_bits += labels.numel()
     
-    test_acc = test_corrects.double() / len(dataloaders['test'].dataset)
-    print(f"Test Accuracy: {test_acc:.4f}")
+    if total_bits > 0:
+        test_acc = test_correct_bits.double() / total_bits
+        print(f"Test Binary Accuracy: {test_acc:.4f}")
+    else:
+        print("Test set is empty.")
 
     # --- 6. Generate Grad-CAM Visualization ---
     try:

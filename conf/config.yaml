@@ -1,8 +1,6 @@
-# @package _global_
-
 defaults:
   - model: resnet50
-  - dataset: vindr
+  - dataset: nih_chest_x_ray
   - _self_
 
 # General experiment settings

@@ -5,14 +5,12 @@ from omegaconf import DictConfig
 from typing import List, Optional, Tuple
 import numpy as np
 import matplotlib.pyplot as plt
-from pytorch_gradcam import GradCAM
-from pytorch_gradcam.utils.image import show_cam_on_image
-from pytorch_gradcam.utils.model_targets import ClassifierOutputTarget
+from pytorch_grad_cam import GradCAM
+from pytorch_grad_cam.utils.image import show_cam_on_image
+from pytorch_grad_cam.utils.model_targets import ClassifierOutputTarget
 import os
 import pandas as pd
 from PIL import Image
-
-from src.data.dataset import dicom_to_pil # Import the loader
 
 
 def _get_target_layer_by_name(model: nn.Module, layer_name: str) -> Optional[nn.Module]:
@@ -66,7 +64,7 @@ def generate_gradcam_by_pathology(
         print(f"Warning: Target layer '{target_layer_name}' not found. Skipping.")
         return
         
-    cam = GradCAM(model=model, target_layers=[target_layer], use_cuda=device.type == 'cuda')
+    cam = GradCAM(model=model, target_layers=[target_layer])
     
     # Define transforms for a single image
     transform = transforms.Compose([
@@ -78,11 +76,17 @@ def generate_gradcam_by_pathology(
     class_map = {name: i for i, name in enumerate(cfg.dataset.classes)}
 
     for class_name, class_idx in class_map.items():
-        sample = full_df[full_df['label_name'] == class_name].iloc[0]
+        # Find a sample image that contains the current pathology
+        sample_row = full_df[full_df['Finding Labels'].str.contains(class_name, na=False)]
+        if sample_row.empty:
+            print(f"No sample found for pathology: {class_name}. Skipping.")
+            continue
+        
+        sample = sample_row.iloc[0]
         image_path = sample['image_path']
         
         try:
-            image = dicom_to_pil(image_path).convert("RGB")
+            image = Image.open(image_path).convert("RGB")
         except Exception as e:
             print(f"Skipping {class_name}, could not load image {image_path}: {e}")
             continue
@@ -116,13 +120,13 @@ def generate_gradcam_grid(
     """
     print("\n--- Generating random Grad-CAM grid ---")
     model.eval()
-    target_layer_name = cfg.model.target_layer
+    target_layer__name = cfg.model.target_layer
     target_layer = _get_target_layer_by_name(model, target_layer_name)
     if target_layer is None:
         print(f"Warning: Target layer '{target_layer_name}' not found. Skipping.")
         return
         
-    cam = GradCAM(model=model, target_layers=[target_layer], use_cuda=torch.cuda.is_available())
+    cam = GradCAM(model=model, target_layers=[target_layer])
 
     images, labels = next(iter(dataloader))
     images = images[:num_images]

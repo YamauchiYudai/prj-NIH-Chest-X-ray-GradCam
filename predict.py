@@ -7,7 +7,6 @@ from torchvision import transforms
 import os
 
 from src.models.factory import get_model
-from src.data.dataset import dicom_to_pil # Re-use the DICOM loader
 
 def predict(cfg: DictConfig, model_path: str, image_path: str):
     """
@@ -16,7 +15,7 @@ def predict(cfg: DictConfig, model_path: str, image_path: str):
     Args:
         cfg (DictConfig): Hydra config to instantiate the model.
         model_path (str): Path to the trained model checkpoint (.pth).
-        image_path (str): Path to the input image (DICOM or other formats).
+        image_path (str): Path to the input image.
     """
     # --- 1. Setup ---
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -38,15 +37,12 @@ def predict(cfg: DictConfig, model_path: str, image_path: str):
 
     # --- 4. Load and Preprocess Image ---
     try:
-        if image_path.lower().endswith('.dcm') or image_path.lower().endswith('.dicom'):
-            image = dicom_to_pil(image_path).convert("RGB")
-        else:
-            image = Image.open(image_path).convert("RGB")
+        image = Image.open(image_path).convert("RGB")
     except Exception as e:
         print(f"Error loading image '{image_path}': {e}")
         return
 
-    # Use the same transforms as validation, but without normalization for display later
+    # Use the same transforms as validation
     preprocess = transforms.Compose([
         transforms.Resize((cfg.dataset.image_size, cfg.dataset.image_size)),
         transforms.ToTensor(),

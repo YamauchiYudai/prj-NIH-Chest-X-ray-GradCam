@@ -1,7 +1,7 @@
 hydra-core
 omegaconf
 timm
-pytorch-gradcam
+grad-cam
 datasets
 scikit-learn
 pandas

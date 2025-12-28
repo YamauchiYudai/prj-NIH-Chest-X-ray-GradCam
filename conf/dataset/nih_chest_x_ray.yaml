@@ -1,0 +1,19 @@
+name: nih_chest_x_ray
+# IMPORTANT: This path must point to the location where you have downloaded
+# and extracted the NIH Chest X-ray dataset.
+data_dir: "data"
+image_size: 224
+batch_size: 32
+num_workers: 4
+
+# Focusing on a subset of common pathologies from the NIH dataset.
+classes:
+  - "Atelectasis"
+  - "Cardiomegaly"
+  - "Effusion"
+  - "Infiltration"
+  - "Mass"
+  - "Nodule"
+  - "Pneumonia"
+  - "Pneumothorax"
+num_classes: ${to_int:${len:${.classes}}} # OmegaConf resolver to dynamically get the length
