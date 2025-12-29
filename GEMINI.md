@@ -6,6 +6,9 @@
 ## 要件
 以下の仕様に基づき、拡張性と実験再現性の高いPythonコードを作成してください。
 
+## Atention!
+環境は必ずdockerを立ち上げてdocker上で行ってください。ローカルへのライブラリのダウンロードは禁止です。
+
 ### 技術スタック
 - **Environment**: Docker (Base: `pytorch/pytorch`)
 - **Config**: Hydra (`hydra-core`, `omegaconf`)

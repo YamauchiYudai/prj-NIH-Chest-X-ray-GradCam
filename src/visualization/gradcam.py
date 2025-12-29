@@ -1,6 +1,7 @@
 import torch
 import torch.nn as nn
 from torch.utils.data import DataLoader
+from torchvision import transforms
 from omegaconf import DictConfig
 from typing import List, Optional, Tuple
 import numpy as np
@@ -120,7 +121,7 @@ def generate_gradcam_grid(
     """
     print("\n--- Generating random Grad-CAM grid ---")
     model.eval()
-    target_layer__name = cfg.model.target_layer
+    target_layer_name = cfg.model.target_layer
     target_layer = _get_target_layer_by_name(model, target_layer_name)
     if target_layer is None:
         print(f"Warning: Target layer '{target_layer_name}' not found. Skipping.")
@@ -131,6 +132,10 @@ def generate_gradcam_grid(
     images, labels = next(iter(dataloader))
     images = images[:num_images]
     labels = labels[:num_images]
+
+    # Move images to the same device as the model
+    device = next(model.parameters()).device
+    images = images.to(device)
 
     targets = [ClassifierOutputTarget(label) for label in labels]
     grayscale_cam = cam(input_tensor=images, targets=targets)
