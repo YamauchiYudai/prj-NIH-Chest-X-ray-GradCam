@@ -1,6 +1,7 @@
 import torch
 from torch.utils.data import Dataset, DataLoader
 from torchvision import transforms
+import hydra
 from omegaconf import DictConfig
 from typing import Tuple, Dict, List, Optional
 from PIL import Image
@@ -63,7 +64,7 @@ def get_dataloaders(cfg: DictConfig, debug: bool = False) -> Tuple[Dict[str, Dat
     """
     Creates and returns train, validation, and test dataloaders for the NIH dataset.
     """
-    data_root = cfg.dataset.data_dir
+    data_root = hydra.utils.to_absolute_path(cfg.dataset.data_dir)
     target_classes = list(cfg.dataset.classes)
     class_map = {name: i for i, name in enumerate(target_classes)}
     num_classes = len(target_classes)
@@ -73,11 +74,16 @@ def get_dataloaders(cfg: DictConfig, debug: bool = False) -> Tuple[Dict[str, Dat
     test_list_path = os.path.join(data_root, 'test_list.txt')
     metadata_path = os.path.join(data_root, 'Data_Entry_2017.csv')
 
+    print(f"Data root: {os.path.abspath(data_root)}")
+    print(f"Checking for train_val_list: {train_val_list_path} (exists: {os.path.exists(train_val_list_path)})")
+
     def load_list(path, limit=None):
         if not os.path.exists(path):
+            print(f"Warning: File not found: {path}")
             return []
         with open(path, 'r') as f:
             lines = [line.strip() for line in f.readlines() if line.strip()]
+        print(f"Loaded {len(lines)} lines from {path}")
         return lines[:limit] if limit else lines
 
     if debug:
@@ -95,6 +101,9 @@ def get_dataloaders(cfg: DictConfig, debug: bool = False) -> Tuple[Dict[str, Dat
     if os.path.exists(metadata_path):
         try:
             metadata = pd.read_csv(metadata_path)
+            # Add full image paths to metadata
+            metadata['image_path'] = metadata['Image Index'].apply(lambda x: find_image_path(x, data_root))
+            
             # Create label matrix
             def get_label_vector(label_str):
                 vec = np.zeros(num_classes, dtype=np.float32)
