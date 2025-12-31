@@ -59,10 +59,13 @@ class NIHChestXrayDataset(Dataset):
 
         return image, torch.tensor(label, dtype=torch.float32)
 
-
-def get_dataloaders(cfg: DictConfig, debug: bool = False) -> Tuple[Dict[str, DataLoader], Optional[pd.DataFrame]]:
+def get_data_splits(cfg: DictConfig, debug: bool = False):
     """
-    Creates and returns train, validation, and test dataloaders for the NIH dataset.
+    Loads data lists and splits them into train, val, test.
+    Returns:
+        splits (Dict): {'train': (files, labels), 'val': ..., 'test': ...}
+        class_map (Dict): mapping
+        metadata (pd.DataFrame): metadata df
     """
     data_root = hydra.utils.to_absolute_path(cfg.dataset.data_dir)
     target_classes = list(cfg.dataset.classes)
@@ -129,7 +132,21 @@ def get_dataloaders(cfg: DictConfig, debug: bool = False) -> Tuple[Dict[str, Dat
         val_files = [] # For debug=True, we just use train
         train_y = train_val_labels
         val_y = None
+        
+    splits = {
+        'train': (train_files, train_y),
+        'val': (val_files, val_y),
+        'test': (test_filenames, test_labels)
+    }
+    return splits, class_map, metadata
 
+def get_dataloaders(cfg: DictConfig, debug: bool = False) -> Tuple[Dict[str, DataLoader], Optional[pd.DataFrame]]:
+    """
+    Creates and returns train, validation, and test dataloaders for the NIH dataset.
+    """
+    splits, class_map, metadata = get_data_splits(cfg, debug)
+    data_root = hydra.utils.to_absolute_path(cfg.dataset.data_dir)
+    
     # Define transforms
     mean = [0.485, 0.456, 0.406]
     std = [0.229, 0.224, 0.225]
@@ -151,12 +168,16 @@ def get_dataloaders(cfg: DictConfig, debug: bool = False) -> Tuple[Dict[str, Dat
 
     # Create datasets
     datasets = {}
+    train_files, train_y = splits['train']
+    val_files, val_y = splits['val']
+    test_files, test_y = splits['test']
+
     if len(train_files) > 0:
         datasets['train'] = NIHChestXrayDataset(train_files, train_y, class_map, data_root, transform=data_transforms['train'])
     if len(val_files) > 0:
         datasets['val'] = NIHChestXrayDataset(val_files, val_y, class_map, data_root, transform=data_transforms['val'])
-    if len(test_filenames) > 0:
-        datasets['test'] = NIHChestXrayDataset(test_filenames, test_labels, class_map, data_root, transform=data_transforms['val'])
+    if len(test_files) > 0:
+        datasets['test'] = NIHChestXrayDataset(test_files, test_y, class_map, data_root, transform=data_transforms['val'])
 
     dataloaders = {
         p: DataLoader(ds, batch_size=cfg.dataset.batch_size if p != 'train' or not debug else 2, 
