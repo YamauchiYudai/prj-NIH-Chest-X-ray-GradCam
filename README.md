@@ -68,6 +68,18 @@ docker compose exec app python verify_pipeline.py
 docker compose exec app python main.py
 ```
 
+#### 4.1. 学習の高速化 (Optional)
+画像の読み込み（I/O）時間を短縮するため、事前にデータをPickle化してメモリに展開してから学習することができます。
+
+1.  **前処理（初回のみ）**: 画像をリサイズしてPickleファイルに変換します。
+    ```bash
+    docker compose run --rm app python -m src.preprocessing.create_picklefiles
+    ```
+2.  **高速学習の実行**: `dataset.use_pickle=true` を指定します。
+    ```bash
+    docker compose exec app python main.py dataset.use_pickle=true
+    ```
+
 #### パラメータの変更
 Hydraの機能により、コマンドライン引数で設定を上書きできます。
 

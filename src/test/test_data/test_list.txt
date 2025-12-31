@@ -1,0 +1,2 @@
+dummy_test_000.png
+dummy_test_001.png

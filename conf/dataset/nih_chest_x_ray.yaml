@@ -17,3 +17,7 @@ classes:
   - "Pneumonia"
   - "Pneumothorax"
 num_classes: ${to_int:${len:${.classes}}} # OmegaConf resolver to dynamically get the length
+
+# Optimization settings
+use_pickle: false      # If true, load data from pickle files (fast I/O)
+pickle_dir: "pickles"  # Directory name under data_dir
