@@ -8,7 +8,7 @@ import os
 
 from src.models.factory import get_model
 
-def predict(cfg: DictConfig, model_path: str, image_path: str):
+def predict(cfg: DictConfig, model_path: str, image_path: str, device_name: str = "cpu"):
     """
     Runs inference on a single image using a trained model.
 
@@ -16,9 +16,14 @@ def predict(cfg: DictConfig, model_path: str, image_path: str):
         cfg (DictConfig): Hydra config to instantiate the model.
         model_path (str): Path to the trained model checkpoint (.pth).
         image_path (str): Path to the input image.
+        device_name (str): Device to run inference on ('cpu', 'cuda', etc.).
     """
     # --- 1. Setup ---
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    if device_name == "auto":
+        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    else:
+        device = torch.device(device_name)
+    
     print(f"Using device: {device}")
 
     # --- 2. Build Model ---
@@ -28,6 +33,7 @@ def predict(cfg: DictConfig, model_path: str, image_path: str):
 
     # --- 3. Load Trained Weights ---
     try:
+        # map_location ensures weights are loaded to the correct device (e.g. GPU -> CPU)
         model.load_state_dict(torch.load(model_path, map_location=device))
         print(f"Successfully loaded model weights from {model_path}")
     except FileNotFoundError:
@@ -90,6 +96,12 @@ if __name__ == '__main__':
         default='.', 
         help="Path to the Hydra output directory of the training run, which contains the `.hydra` config."
     )
+    parser.add_argument(
+        '--device',
+        type=str,
+        default='cpu',
+        help="Device to use for inference (default: 'cpu'). Use 'cuda' for GPU or 'auto'."
+    )
     
     args = parser.parse_args()
 
@@ -97,11 +109,19 @@ if __name__ == '__main__':
     # Hydra conveniently saves it in the output directory.
     try:
         # We manually compose the config from the directory where the model was saved
-        with hydra.initialize_config_dir(config_dir=os.path.join(args.config_path, '.hydra')):
+        # Assuming the config is at config_path/.hydra/config.yaml
+        # Note: Hydra 1.1+ might differ slightly, but this is standard for older/simple hydra usage.
+        # If the user provides just the folder containing .hydra, we handle it.
+        config_dir = os.path.join(args.config_path, '.hydra')
+        if not os.path.exists(config_dir):
+             # Fallback: maybe they pointed directly to the dir with config.yaml (less likely with hydra)
+             config_dir = args.config_path
+        
+        with hydra.initialize_config_dir(config_dir=os.path.abspath(config_dir), version_base=None):
             cfg = hydra.compose(config_name="config")
     except Exception as e:
         print(f"Error loading Hydra config from '{args.config_path}': {e}")
         print("Please provide the path to a valid Hydra output directory (e.g., outputs/2023-12-22/10-00-00/)")
         exit()
 
-    predict(cfg, args.model_path, args.image_path)
+    predict(cfg, args.model_path, args.image_path, args.device)

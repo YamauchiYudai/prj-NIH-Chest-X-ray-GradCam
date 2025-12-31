@@ -46,6 +46,11 @@ def train_model(
 
         # Each epoch has a training and validation phase
         for phase in ['train', 'val']:
+            if phase not in dataloaders:
+                if phase == 'train':
+                    raise KeyError("The 'train' dataloader is missing. Please check your data directory and list files.")
+                continue # Skip validation if not present
+
             if phase == 'train':
                 model.train()  # Set model to training mode
             else:

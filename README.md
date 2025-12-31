@@ -41,7 +41,17 @@ prj-VinDRCXR-GradCam/
 プロジェクトのルートディレクトリで以下のコマンドを実行し、Dockerコンテナをビルド・起動します。
 
 ```bash
-docker compose up -d --build
+GEMINI.mdを参考にして、以下のエラーを解消してくださいtarting training...
+  Epoch 0/4
+  ----------
+  Error executing job with overrides: ['model=resnet50', 'epochs=5']
+  Traceback (most recent call last):
+    File "/content/drive/MyDrive/Colab Notebooks/prj-VinDRCXR-GradCam/main.py", line 80, in main
+      train_model(
+    File "/content/drive/MyDrive/Colab Notebooks/prj-VinDRCXR-GradCam/src/utils/trainer.py", line 59, in train_model
+      for inputs, labels in dataloaders[phase]:
+                            ~~~~~~~~~~~^^^^^^^
+  KeyError: 'train'
 ```
 
 ### 2. 動作確認 (Smoke Test)
