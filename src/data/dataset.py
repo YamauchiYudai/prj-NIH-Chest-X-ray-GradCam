@@ -1,5 +1,5 @@
 import torch
-from torch.utils.data import Dataset, DataLoader
+from torch.utils.data import Dataset, DataLoader, ConcatDataset
 from torchvision import transforms
 import hydra
 from omegaconf import DictConfig
@@ -7,6 +7,7 @@ from typing import Tuple, Dict, List, Optional, Any
 from PIL import Image
 import pandas as pd
 import os
+import glob
 import numpy as np
 import pickle
 from sklearn.model_selection import train_test_split
@@ -207,30 +208,46 @@ def get_dataloaders(cfg: DictConfig, debug: bool = False) -> Tuple[Dict[str, Dat
         datasets = {}
         
         for phase in ['train', 'val', 'test']:
-            pkl_path = os.path.join(pickle_dir, f"{phase}.pkl")
-            if not os.path.exists(pkl_path):
-                print(f"Warning: Pickle file not found: {pkl_path}")
+            # Search for chunked files first
+            part_files = sorted(glob.glob(os.path.join(pickle_dir, f"{phase}_part_*.pkl")))
+            
+            # Fallback to single file
+            single_file = os.path.join(pickle_dir, f"{phase}.pkl")
+            if not part_files and os.path.exists(single_file):
+                part_files = [single_file]
+            
+            if not part_files:
+                print(f"Warning: No pickle files found for {phase} in {pickle_dir}")
                 continue
-            
-            # For debug mode, we might want to load only a subset, but pickle loading is all-or-nothing usually
-            # unless we implement a custom lazy loader. For now, load all.
-            with open(pkl_path, 'rb') as f:
-                data_list = pickle.load(f)
                 
-            if debug:
-                data_list = data_list[:10]
-                
-            print(f"Loaded {len(data_list)} samples for {phase}")
-            
-            # Select transform
+            phase_datasets = []
             transform = data_transforms['train'] if phase == 'train' else data_transforms['val']
             
-            datasets[phase] = NIHChestXrayDataset(
-                class_map=class_map,
-                data_root=data_root,
-                transform=transform,
-                data_list=data_list
-            )
+            for pkl_path in part_files:
+                print(f"  Loading {os.path.basename(pkl_path)}...")
+                with open(pkl_path, 'rb') as f:
+                    data_list = pickle.load(f)
+                    
+                if debug:
+                    data_list = data_list[:10]
+                    
+                ds = NIHChestXrayDataset(
+                    class_map=class_map,
+                    data_root=data_root,
+                    transform=transform,
+                    data_list=data_list
+                )
+                phase_datasets.append(ds)
+                
+                if debug: # In debug mode, just load the first chunk
+                    break
+            
+            if len(phase_datasets) == 1:
+                datasets[phase] = phase_datasets[0]
+            else:
+                datasets[phase] = ConcatDataset(phase_datasets)
+            
+            print(f"  Total {phase} samples: {len(datasets[phase])}")
             
         metadata = None # Metadata is not easily available in pickle mode without loading CSV separately
         

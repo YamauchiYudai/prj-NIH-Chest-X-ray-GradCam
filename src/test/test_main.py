@@ -64,5 +64,49 @@ class TestPipeline(unittest.TestCase):
         self.assertIn("Execution finished", result.stdout)
         self.assertIn("Test Binary Accuracy", result.stdout)
 
+    def test_pickle_pipeline(self):
+        """Runs create_picklefiles.py and then main.py with use_pickle=true."""
+        print("\n=== Testing Pickle Pipeline ===")
+        
+        # 1. Run create_picklefiles
+        cmd_prep = [
+            "python", "-m", "src.preprocessing.create_picklefiles",
+            f"dataset.data_dir={self.test_data_root}",
+            "dataset.image_size=32" # Small size for speed
+        ]
+        print(f"Running prep: {' '.join(cmd_prep)}")
+        res_prep = subprocess.run(cmd_prep, capture_output=True, text=True)
+        print("Prep STDOUT:\n", res_prep.stdout)
+        if res_prep.stderr: print("Prep STDERR:\n", res_prep.stderr)
+        
+        self.assertEqual(res_prep.returncode, 0, f"create_picklefiles failed: {res_prep.stderr}")
+        
+        # Verify pickle files exist
+        pickle_dir = os.path.join(self.test_data_root, "pickles")
+        self.assertTrue(os.path.exists(pickle_dir))
+        files = os.listdir(pickle_dir)
+        print(f"Created pickle files: {files}")
+        self.assertTrue(len(files) > 0)
+        
+        # 2. Run main with use_pickle=true
+        cmd_main = [
+            "python", "main.py",
+            "epochs=1",
+            "device=cpu",
+            "dataset.batch_size=2",
+            "dataset.num_workers=0",
+            f"dataset.data_dir={self.test_data_root}",
+            "dataset.use_pickle=true",
+            "dataset.image_size=32" # Must match prep
+        ]
+        print(f"Running main with pickle: {' '.join(cmd_main)}")
+        res_main = subprocess.run(cmd_main, capture_output=True, text=True)
+        print("Main STDOUT:\n", res_main.stdout)
+        if res_main.stderr: print("Main STDERR:\n", res_main.stderr)
+        
+        self.assertEqual(res_main.returncode, 0, f"main.py with pickle failed: {res_main.stderr}")
+        self.assertIn("Loading data from Pickle files", res_main.stdout)
+        self.assertIn("Test Binary Accuracy", res_main.stdout)
+
 if __name__ == '__main__':
     unittest.main()

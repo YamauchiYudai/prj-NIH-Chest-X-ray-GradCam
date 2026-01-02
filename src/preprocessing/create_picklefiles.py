@@ -33,6 +33,9 @@ def main(cfg: DictConfig) -> None:
     # We want to keep it as uint8 PIL image initially, then convert to numpy
     resize_transform = transforms.Resize((cfg.dataset.image_size, cfg.dataset.image_size))
     
+    # Chunk size for saving multiple pickle files to avoid RAM crash
+    CHUNK_SIZE = 2000
+
     for split_name, (files, labels) in splits.items():
         if len(files) == 0:
             print(f"Skipping {split_name} (empty)")
@@ -44,35 +47,51 @@ def main(cfg: DictConfig) -> None:
         # We pass None as transform so we get the PIL image
         dataset = NIHChestXrayDataset(files, labels, class_map, data_root, transform=None)
         
-        data_list = []
-        
-        for i in tqdm(range(len(dataset))):
-            try:
-                # __getitem__ returns (PIL.Image, torch.Tensor) when transform is None
-                image, label = dataset[i]
-                
-                # Apply resize
-                image = resize_transform(image)
-                
-                # Convert to numpy uint8
-                image_np = np.array(image, dtype=np.uint8)
-                
-                # Store
-                data_list.append({
-                    'image': image_np,
-                    'label': label.numpy()
-                })
-            except Exception as e:
-                print(f"Error processing index {i}: {e}")
-                continue
+        total_images = len(dataset)
+        num_chunks = (total_images + CHUNK_SIZE - 1) // CHUNK_SIZE
+
+        for chunk_idx in range(num_chunks):
+            start_idx = chunk_idx * CHUNK_SIZE
+            end_idx = min((chunk_idx + 1) * CHUNK_SIZE, total_images)
             
-        # Save pickle
-        save_path = os.path.join(output_dir, f"{split_name}.pkl")
-        print(f"Saving to {save_path}...")
-        with open(save_path, 'wb') as f:
-            pickle.dump(data_list, f)
+            print(f"  Processing chunk {chunk_idx + 1}/{num_chunks} (indices {start_idx} to {end_idx})...")
             
-        print(f"Saved {save_path}")
+            data_list = []
+            for i in tqdm(range(start_idx, end_idx), leave=False):
+                try:
+                    # __getitem__ returns (PIL.Image, torch.Tensor) when transform is None
+                    image, label = dataset[i]
+                    
+                    # Apply resize
+                    image = resize_transform(image)
+                    
+                    # Convert to numpy uint8
+                    image_np = np.array(image, dtype=np.uint8)
+                    
+                    # Store
+                    data_list.append({
+                        'image': image_np,
+                        'label': label.numpy()
+                    })
+                except Exception as e:
+                    print(f"Error processing index {i}: {e}")
+                    continue
+                
+            # Save pickle chunk
+            save_path = os.path.join(output_dir, f"{split_name}_part_{chunk_idx}.pkl")
+            # If there's only one chunk, maybe we want to keep the original name? 
+            # But for consistency, let's use parts or handle single file. 
+            # If we want to support the old way, we could check num_chunks. 
+            # But let's stick to parts for consistency in the new loader.
+            
+            print(f"  Saving to {save_path}...")
+            with open(save_path, 'wb') as f:
+                pickle.dump(data_list, f)
+            
+            # Free memory
+            del data_list
+            
+        print(f"Finished {split_name}")
 
 if __name__ == "__main__":
     main()
