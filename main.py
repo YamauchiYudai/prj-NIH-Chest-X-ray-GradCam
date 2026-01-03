@@ -129,8 +129,13 @@ def main(cfg: DictConfig) -> None:
         # Note: generate_gradcam_grid likely needs to handle device moving internally 
         # or we pass the model already on the correct device.
         generate_gradcam_grid(best_model, dataloaders['test'], cfg)
+        
         # Generate specific CAMs for each pathology using the training set samples
-        generate_gradcam_by_pathology(best_model, train_df, cfg, test_device)
+        if train_df is not None:
+            generate_gradcam_by_pathology(best_model, train_df, cfg, test_device)
+        else:
+            print("\n[Info] Skipping 'generate_gradcam_by_pathology' because metadata (train_df) is not available in Pickle mode.")
+            
     except Exception as e:
         print(f"\n[Error] Failed to generate Grad-CAM: {e}")
 

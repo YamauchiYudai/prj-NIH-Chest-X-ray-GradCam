@@ -130,6 +130,13 @@ def generate_gradcam_grid(
     cam = GradCAM(model=model, target_layers=[target_layer])
 
     images, labels = next(iter(dataloader))
+    
+    # Adjust num_images if batch size is smaller
+    batch_size = images.size(0)
+    if batch_size < num_images:
+        print(f"Batch size ({batch_size}) is smaller than requested num_images ({num_images}). Using {batch_size} images.")
+        num_images = batch_size
+
     images = images[:num_images]
     labels = labels[:num_images]
 
@@ -137,7 +144,17 @@ def generate_gradcam_grid(
     device = next(model.parameters()).device
     images = images.to(device)
 
-    targets = [ClassifierOutputTarget(label) for label in labels]
+    # For multi-label, labels are vectors. Let's pick the first active class or just the first class for visualization.
+    # We convert the label vector to an index of the first positive class.
+    target_indices = []
+    for label_vec in labels:
+        pos_indices = torch.where(label_vec > 0.5)[0]
+        if len(pos_indices) > 0:
+            target_indices.append(int(pos_indices[0].item()))
+        else:
+            target_indices.append(0) # Default to class 0 if no class is active
+
+    targets = [ClassifierOutputTarget(idx) for idx in target_indices]
     grayscale_cam = cam(input_tensor=images, targets=targets)
 
     mean = np.array([0.485, 0.456, 0.406])
@@ -154,7 +171,7 @@ def generate_gradcam_grid(
         cam_image = show_cam_on_image(rgb_img, grayscale_cam[i, :], use_rgb=True)
 
         axes[0, i].imshow(rgb_img)
-        axes[0, i].set_title(f"Original (GT: {labels[i].item()})")
+        axes[0, i].set_title(f"Original (GT idx: {target_indices[i]})")
         axes[0, i].axis('off')
 
         axes[1, i].imshow(cam_image)

@@ -1,0 +1,5 @@
+dummy_train_000.png
+dummy_train_001.png
+dummy_train_002.png
+dummy_train_003.png
+dummy_train_004.png

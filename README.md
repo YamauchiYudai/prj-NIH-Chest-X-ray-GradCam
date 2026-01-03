@@ -41,20 +41,18 @@ prj-VinDRCXR-GradCam/
 プロジェクトのルートディレクトリで以下のコマンドを実行し、Dockerコンテナをビルド・起動します。
 
 ```bash
-GEMINI.mdを参考にして、以下のエラーを解消してくださいtarting training...
-  Epoch 0/4
-  ----------
-  Error executing job with overrides: ['model=resnet50', 'epochs=5']
-  Traceback (most recent call last):
-    File "/content/drive/MyDrive/Colab Notebooks/prj-VinDRCXR-GradCam/main.py", line 80, in main
-      train_model(
-    File "/content/drive/MyDrive/Colab Notebooks/prj-VinDRCXR-GradCam/src/utils/trainer.py", line 59, in train_model
-      for inputs, labels in dataloaders[phase]:
-                            ~~~~~~~~~~~^^^^^^^
-  KeyError: 'train'
+docker compose build
+docker compose up -d
 ```
 
-### 2. 動作確認 (Smoke Test)
+### 2. 開発用テスト (Development Test)
+開発用の統合テスト（Smoke Test）を実行します。このテストはダミーデータを `src/test/test_data` に自動生成し、学習パイプライン全体がエラーなく動作することを確認します。GitHub ActionsのCIでも実行されます。
+
+```bash
+docker compose run --rm app python -m src.test.test_main
+```
+
+### 3. 動作確認 (Legacy Smoke Test)
 少量のデータを使ってパイプライン全体（読み込み→推論→Grad-CAM）が正常に動くか確認します。
 GPUがない環境でも動作します。
 
@@ -63,12 +61,24 @@ docker compose exec app python verify_pipeline.py
 ```
 *   成功すると `Verification Completed` と表示され、ルートディレクトリに `verification_result.png` が生成されます。
 
-### 3. モデルの学習 (Training)
+### 4. モデルの学習 (Training)
 データセット全体を使って学習を実行します。デフォルトでは `resnet50` を使用し、テストセットでの評価とGrad-CAM生成まで行います。
 
 ```bash
 docker compose exec app python main.py
 ```
+
+#### 4.1. 学習の高速化 (Optional)
+画像の読み込み（I/O）時間を短縮するため、事前にデータをPickle化してメモリに展開してから学習することができます。
+
+1.  **前処理（初回のみ）**: 画像をリサイズしてPickleファイルに変換します。
+    ```bash
+    docker compose run --rm app python -m src.preprocessing.create_picklefiles
+    ```
+2.  **高速学習の実行**: `dataset.use_pickle=true` を指定します。
+    ```bash
+    docker compose exec app python main.py dataset.use_pickle=true
+    ```
 
 #### パラメータの変更
 Hydraの機能により、コマンドライン引数で設定を上書きできます。

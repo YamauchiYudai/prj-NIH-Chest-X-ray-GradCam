@@ -1,13 +1,15 @@
 import torch
-from torch.utils.data import Dataset, DataLoader
+from torch.utils.data import Dataset, DataLoader, ConcatDataset
 from torchvision import transforms
 import hydra
 from omegaconf import DictConfig
-from typing import Tuple, Dict, List, Optional
+from typing import Tuple, Dict, List, Optional, Any
 from PIL import Image
 import pandas as pd
 import os
+import glob
 import numpy as np
+import pickle
 from sklearn.model_selection import train_test_split
 from src.utils.file_finder import find_image_path
 
@@ -15,25 +17,49 @@ from src.utils.file_finder import find_image_path
 class NIHChestXrayDataset(Dataset):
     """PyTorch Dataset for the NIH Chest X-ray dataset."""
 
-    def __init__(self, filenames: List[str], labels: Optional[np.ndarray], class_map: Dict[str, int], data_root: str, transform=None):
+    def __init__(self, filenames: Optional[List[str]] = None, 
+                 labels: Optional[np.ndarray] = None, 
+                 class_map: Dict[str, int] = None, 
+                 data_root: str = None, 
+                 transform = None,
+                 data_list: Optional[List[Dict[str, Any]]] = None):
         """
         Args:
-            filenames (List[str]): List of image filenames.
-            labels (np.ndarray, optional): Array of labels corresponding to filenames.
+            filenames (List[str], optional): List of image filenames (Standard mode).
+            labels (np.ndarray, optional): Array of labels (Standard mode).
             class_map (Dict[str, int]): Mapping from class name to integer label.
             data_root (str): Root directory for data.
             transform (callable, optional): Optional transform to be applied on a sample.
+            data_list (List[Dict], optional): Pre-loaded data from pickle (Cached mode).
+                                            Each item is {'image': np.uint8, 'label': np.float32}.
         """
         self.filenames = filenames
         self.labels = labels
         self.transform = transform
         self.class_map = class_map
         self.data_root = data_root
+        self.data_list = data_list
 
     def __len__(self) -> int:
+        if self.data_list is not None:
+            return len(self.data_list)
         return len(self.filenames)
 
     def __getitem__(self, idx: int) -> Tuple[torch.Tensor, torch.Tensor]:
+        # --- Cached Mode (Pickle) ---
+        if self.data_list is not None:
+            item = self.data_list[idx]
+            # Convert uint8 numpy array back to PIL Image
+            image = Image.fromarray(item['image'])
+            # Label is already in the item
+            label = torch.tensor(item['label'], dtype=torch.float32)
+            
+            if self.transform:
+                image = self.transform(image)
+                
+            return image, label
+
+        # --- Standard Mode (File I/O) ---
         filename = self.filenames[idx]
         img_path = find_image_path(filename, self.data_root)
         
@@ -59,10 +85,13 @@ class NIHChestXrayDataset(Dataset):
 
         return image, torch.tensor(label, dtype=torch.float32)
 
-
-def get_dataloaders(cfg: DictConfig, debug: bool = False) -> Tuple[Dict[str, DataLoader], Optional[pd.DataFrame]]:
+def get_data_splits(cfg: DictConfig, debug: bool = False):
     """
-    Creates and returns train, validation, and test dataloaders for the NIH dataset.
+    Loads data lists and splits them into train, val, test.
+    Returns:
+        splits (Dict): {'train': (files, labels), 'val': ..., 'test': ...}
+        class_map (Dict): mapping
+        metadata (pd.DataFrame): metadata df
     """
     data_root = hydra.utils.to_absolute_path(cfg.dataset.data_dir)
     target_classes = list(cfg.dataset.classes)
@@ -129,6 +158,22 @@ def get_dataloaders(cfg: DictConfig, debug: bool = False) -> Tuple[Dict[str, Dat
         val_files = [] # For debug=True, we just use train
         train_y = train_val_labels
         val_y = None
+        
+    splits = {
+        'train': (train_files, train_y),
+        'val': (val_files, val_y),
+        'test': (test_filenames, test_labels)
+    }
+    return splits, class_map, metadata
+
+def get_dataloaders(cfg: DictConfig, debug: bool = False) -> Tuple[Dict[str, DataLoader], Optional[pd.DataFrame]]:
+    """
+    Creates and returns train, validation, and test dataloaders for the NIH dataset.
+    Supports both standard file I/O and cached Pickle I/O.
+    """
+    data_root = hydra.utils.to_absolute_path(cfg.dataset.data_dir)
+    target_classes = list(cfg.dataset.classes)
+    class_map = {name: i for i, name in enumerate(target_classes)}
 
     # Define transforms
     mean = [0.485, 0.456, 0.406]
@@ -136,27 +181,106 @@ def get_dataloaders(cfg: DictConfig, debug: bool = False) -> Tuple[Dict[str, Dat
     
     data_transforms = {
         'train': transforms.Compose([
-            transforms.Resize((cfg.dataset.image_size, cfg.dataset.image_size)),
+            # Resize is assumed to be done during pickle creation if using pickle
+            # Input is already PIL Image in both modes (standard load or pickle load)
             transforms.RandomHorizontalFlip(),
             transforms.RandomRotation(10),
             transforms.ToTensor(),
             transforms.Normalize(mean, std)
         ]),
         'val': transforms.Compose([
-            transforms.Resize((cfg.dataset.image_size, cfg.dataset.image_size)),
             transforms.ToTensor(),
             transforms.Normalize(mean, std)
         ]),
     }
-
-    # Create datasets
-    datasets = {}
-    if len(train_files) > 0:
-        datasets['train'] = NIHChestXrayDataset(train_files, train_y, class_map, data_root, transform=data_transforms['train'])
-    if len(val_files) > 0:
-        datasets['val'] = NIHChestXrayDataset(val_files, val_y, class_map, data_root, transform=data_transforms['val'])
-    if len(test_filenames) > 0:
-        datasets['test'] = NIHChestXrayDataset(test_filenames, test_labels, class_map, data_root, transform=data_transforms['val'])
+    
+    # Adjust transforms slightly logic:
+    # If using pickle, input is PIL Image (converted in __getitem__).
+    # If using standard, input is PIL Image.
+    # So transforms are compatible. 
+    # BUT, standard mode has `Resize` at the beginning. Pickle mode already has Resized data.
+    # We should ensure we don't Resize again if not needed, or it doesn't hurt.
+    # To be safe, let's keep it clean.
+    
+    if cfg.dataset.get('use_pickle', False):
+        print(f"Loading data from Pickle files (Directory: {cfg.dataset.pickle_dir})...")
+        pickle_dir = os.path.join(data_root, cfg.dataset.pickle_dir)
+        datasets = {}
+        
+        for phase in ['train', 'val', 'test']:
+            # Search for chunked files first
+            part_files = sorted(glob.glob(os.path.join(pickle_dir, f"{phase}_part_*.pkl")))
+            
+            # Fallback to single file
+            single_file = os.path.join(pickle_dir, f"{phase}.pkl")
+            if not part_files and os.path.exists(single_file):
+                part_files = [single_file]
+            
+            if not part_files:
+                print(f"Warning: No pickle files found for {phase} in {pickle_dir}")
+                continue
+                
+            phase_datasets = []
+            transform = data_transforms['train'] if phase == 'train' else data_transforms['val']
+            
+            for pkl_path in part_files:
+                print(f"  Loading {os.path.basename(pkl_path)}...")
+                with open(pkl_path, 'rb') as f:
+                    data_list = pickle.load(f)
+                    
+                if debug:
+                    data_list = data_list[:10]
+                    
+                ds = NIHChestXrayDataset(
+                    class_map=class_map,
+                    data_root=data_root,
+                    transform=transform,
+                    data_list=data_list
+                )
+                phase_datasets.append(ds)
+                
+                if debug: # In debug mode, just load the first chunk
+                    break
+            
+            if len(phase_datasets) == 1:
+                datasets[phase] = phase_datasets[0]
+            else:
+                datasets[phase] = ConcatDataset(phase_datasets)
+            
+            print(f"  Total {phase} samples: {len(datasets[phase])}")
+            
+        metadata = None # Metadata is not easily available in pickle mode without loading CSV separately
+        
+    else:
+        # Standard Mode
+        splits, _, metadata = get_data_splits(cfg, debug)
+        
+        # Add Resize to transforms for Standard Mode
+        # Note: We reconstruct transforms here to add Resize
+        base_train_transforms = [
+            transforms.Resize((cfg.dataset.image_size, cfg.dataset.image_size)),
+            transforms.RandomHorizontalFlip(),
+            transforms.RandomRotation(10),
+            transforms.ToTensor(),
+            transforms.Normalize(mean, std)
+        ]
+        base_val_transforms = [
+            transforms.Resize((cfg.dataset.image_size, cfg.dataset.image_size)),
+            transforms.ToTensor(),
+            transforms.Normalize(mean, std)
+        ]
+        
+        datasets = {}
+        for phase, (files, labels) in splits.items():
+            if len(files) > 0:
+                tf = transforms.Compose(base_train_transforms if phase == 'train' else base_val_transforms)
+                datasets[phase] = NIHChestXrayDataset(
+                    filenames=files,
+                    labels=labels,
+                    class_map=class_map,
+                    data_root=data_root,
+                    transform=tf
+                )
 
     dataloaders = {
         p: DataLoader(ds, batch_size=cfg.dataset.batch_size if p != 'train' or not debug else 2, 
