@@ -54,6 +54,11 @@ def main(cfg: DictConfig) -> None:
             start_idx = chunk_idx * CHUNK_SIZE
             end_idx = min((chunk_idx + 1) * CHUNK_SIZE, total_images)
             
+            save_path = os.path.join(output_dir, f"{split_name}_part_{chunk_idx}.pkl")
+            if os.path.exists(save_path):
+                print(f"  Skipping chunk {chunk_idx + 1}/{num_chunks} (already exists: {save_path})")
+                continue
+
             print(f"  Processing chunk {chunk_idx + 1}/{num_chunks} (indices {start_idx} to {end_idx})...")
             
             data_list = []
@@ -76,9 +81,7 @@ def main(cfg: DictConfig) -> None:
                 except Exception as e:
                     print(f"Error processing index {i}: {e}")
                     continue
-                
-            # Save pickle chunk
-            save_path = os.path.join(output_dir, f"{split_name}_part_{chunk_idx}.pkl")
+            
             # If there's only one chunk, maybe we want to keep the original name? 
             # But for consistency, let's use parts or handle single file. 
             # If we want to support the old way, we could check num_chunks. 
