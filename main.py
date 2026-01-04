@@ -77,6 +77,7 @@ def main(cfg: DictConfig) -> None:
     print("\nStarting training...")
     # train_model returns the model with best weights loaded (on train_device)
     # It also saves 'best_model.pth'
+    cwd = os.getcwd()
     train_model(
         model, 
         criterion, 
@@ -84,7 +85,8 @@ def main(cfg: DictConfig) -> None:
         dataloaders, 
         train_device, 
         num_epochs=cfg.epochs,
-        scheduler=exp_lr_scheduler
+        scheduler=exp_lr_scheduler,
+        save_dir=cwd
     )
 
     # --- 5. Evaluation (on test set) ---
@@ -96,11 +98,12 @@ def main(cfg: DictConfig) -> None:
     # Load best weights, handling device conversion (e.g. GPU -> CPU)
     # map_location ensures the weights are remapped to the target device
     print("Loading best model weights from 'best_model.pth'...")
+    model_path = os.path.join(os.getcwd(), 'best_model.pth')
     try:
-        state_dict = torch.load('best_model.pth', map_location=test_device)
+        state_dict = torch.load(model_path, map_location=test_device)
         best_model.load_state_dict(state_dict)
     except FileNotFoundError:
-        print("Error: 'best_model.pth' not found. Training might have failed or not improved.")
+        print(f"Error: '{model_path}' not found. Training might have failed or not improved.")
         return
 
     best_model.eval()

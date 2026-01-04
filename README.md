@@ -110,7 +110,7 @@ Hydraの機能により、コマンドライン引数で設定を上書きでき
     *   `gradcam_grid_{model_name}.png`: テスト画像からランダムに生成した可視化結果一覧。
     *   `gradcam_{Pathology}.png`: 各病変クラスごとの代表的な可視化結果。
 
-これらは実行時の出力ディレクトリ（`outputs/YYYY-MM-DD/HH-MM-SS/`）内に保存されます。
+これらは実行時の出力ディレクトリ（`outputs/YYYY-MM-DD/HH-MM-SS/`）内に保存されます。TensorBoardのログや `best_model.pth` も同ディレクトリ内に保存されます。
 
 ---
 

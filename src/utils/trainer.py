@@ -14,7 +14,8 @@ def train_model(
     dataloaders: Dict[str, DataLoader],
     device: torch.device,
     num_epochs: int = 10,
-    scheduler=None
+    scheduler=None,
+    save_dir: str = "."
 ):
     """
     Handles the main training and validation loop with TensorBoard logging.
@@ -27,6 +28,7 @@ def train_model(
         device (torch.device): The device to run training on (CPU or CUDA).
         num_epochs (int): Total number of epochs to train for.
         scheduler: Learning rate scheduler.
+        save_dir (str): Directory to save checkpoints and logs. Defaults to current directory.
 
     Returns:
         nn.Module: The best performing model weights.
@@ -34,8 +36,9 @@ def train_model(
     since = time.time()
     
     # Initialize TensorBoard writer
-    # It will log to a directory within the current working directory (Hydra's output dir)
-    writer = SummaryWriter(log_dir='.')
+    # It will log to a directory within the specified save_dir
+    log_dir = os.path.join(save_dir, 'tensorboard_logs')
+    writer = SummaryWriter(log_dir=log_dir)
 
     best_model_wts = copy.deepcopy(model.state_dict())
     best_acc = 0.0
@@ -104,8 +107,9 @@ def train_model(
                 best_acc = epoch_acc
                 best_model_wts = copy.deepcopy(model.state_dict())
                 # Save the best model checkpoint
-                torch.save(model.state_dict(), 'best_model.pth')
-                print("Saved best model checkpoint to best_model.pth")
+                save_path = os.path.join(save_dir, 'best_model.pth')
+                torch.save(model.state_dict(), save_path)
+                print(f"Saved best model checkpoint to {save_path}")
         
         # Log learning rate
         writer.add_scalar('learning_rate', optimizer.param_groups[0]['lr'], epoch)
