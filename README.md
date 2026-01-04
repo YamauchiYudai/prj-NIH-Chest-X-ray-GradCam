@@ -97,10 +97,26 @@ Hydraの機能により、コマンドライン引数で設定を上書きでき
     ```
 
 ### 4. 学習状況のモニタリング (TensorBoard)
-学習中のLossやAccuracyの推移をブラウザで確認できます。
+学習中のLossやAccuracyの推移をリアルタイムで確認できます。
 
-1.  ブラウザで [http://localhost:6006](http://localhost:6006) にアクセス。
-2.  `outputs/` 以下のログが自動的に表示されます。
+#### 起動コマンド
+コンテナが既に起動している場合（`docker compose up -d` 済み）、以下のコマンドでTensorBoardを立ち上げます。
+
+```bash
+docker compose exec app tensorboard --logdir outputs --host 0.0.0.0
+```
+
+*   **ブラウザでアクセス**: [http://localhost:6006](http://localhost:6006)
+*   `--logdir outputs`: 過去の実験を含むすべてのログ (`outputs/` 以下) を読み込みます。
+
+#### よくあるエラー: "Bind for 0.0.0.0:6006 failed"
+もし `docker compose run ...` を使用して以下のようなエラーが出た場合：
+`Error response from daemon: ... Bind for 0.0.0.0:6006 failed: port is already allocated`
+
+**原因**: `docker compose up -d` で起動したメインのコンテナが既にポート `6006` を使用しているため、新しいコンテナで同じポートを使おうとして競合しています。
+
+**解決策**:
+上記の `docker compose exec` コマンドを使用してください。既存のコンテナ内部でTensorBoardプロセスを起動するため、ポート競合が発生しません。
 
 ### 5. 推論と可視化 (Inference & Grad-CAM)
 `main.py` の実行完了時、以下の処理が自動で行われます。
@@ -110,7 +126,7 @@ Hydraの機能により、コマンドライン引数で設定を上書きでき
     *   `gradcam_grid_{model_name}.png`: テスト画像からランダムに生成した可視化結果一覧。
     *   `gradcam_{Pathology}.png`: 各病変クラスごとの代表的な可視化結果。
 
-これらは実行時の出力ディレクトリ（`outputs/YYYY-MM-DD/HH-MM-SS/`）内に保存されます。
+これらは実行時の出力ディレクトリ（`outputs/YYYY-MM-DD/HH-MM-SS/`）内に保存されます。TensorBoardのログや `best_model.pth` も同ディレクトリ内に保存されます。
 
 ---
 

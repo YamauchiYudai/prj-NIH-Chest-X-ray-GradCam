@@ -56,7 +56,7 @@
 
 ### A) 単一実験の実行
 
-特定のモデル（例: `resnet50`）で、エポック数を指定して学習を実行します。
+特定のモデル（例: `resnet50`）で、エポック数を指定して学習を実行します。結果（モデルの重み `best_model.pth`、Grad-CAM画像、TensorBoardログ）は `outputs/YYYY-MM-DD/HH-MM-SS/` に保存されます。
 
 ```bash
 docker compose exec app python main.py model=resnet50 epochs=5
