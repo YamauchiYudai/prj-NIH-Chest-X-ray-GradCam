@@ -64,6 +64,24 @@ class TestPipeline(unittest.TestCase):
         self.assertIn("Execution finished", result.stdout)
         self.assertIn("Test Binary Accuracy", result.stdout)
 
+        # Verify output artifacts
+        import re
+        match = re.search(r"Check the output directory: (.*)", result.stdout)
+        if match:
+            output_dir = match.group(1).strip()
+            self.assertTrue(os.path.exists(output_dir), f"Output directory {output_dir} does not exist")
+            
+            # Check for model weights
+            model_path = os.path.join(output_dir, "best_model.pth")
+            self.assertTrue(os.path.exists(model_path), f"best_model.pth not found in {output_dir}")
+            
+            # Check for TensorBoard logs
+            tb_dir = os.path.join(output_dir, "tensorboard_logs")
+            self.assertTrue(os.path.exists(tb_dir), f"tensorboard_logs not found in {output_dir}")
+            print(f"Verified artifacts in {output_dir}")
+        else:
+            self.fail("Could not determine output directory from stdout")
+
     def test_pickle_pipeline(self):
         """Runs create_picklefiles.py and then main.py with use_pickle=true."""
         print("\n=== Testing Pickle Pipeline ===")

@@ -4,6 +4,7 @@ name: nih_chest_x_ray
 data_dir: "data"
 image_size: 224
 batch_size: 64
+
 num_workers: 4
 
 # Focusing on a subset of common pathologies from the NIH dataset.
